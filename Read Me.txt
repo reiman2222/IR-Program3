@@ -1,0 +1,14 @@
+Read me assn3.py
+
+assn3.py expects a file named "cran.all.1400" to be in 
+a folder named "corpus", the folder with the specified file
+shoule be in the same folder as assn3.py.
+
+run with command:
+python3 assn3.py
+
+The program will ask the user to set a value for k
+for the top k retreival, the value should be an interger.
+
+The program will then ask the user for a query and print the
+top k results of said query. enter "-stop" to exit the program.
