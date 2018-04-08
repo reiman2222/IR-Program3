@@ -49,25 +49,26 @@ class Index:
         for word in wordList:
             token = tokenize(word)
             
-            if token in tier:
-                wasInTier = False
-                for t in tier[token]:
-                    if(t.termStr == token):
-                        wasInTier = True
-                        termList = t
-                        lastDocTuple = t.getLast()
+            if token != '':
+                if token in tier:
+                    wasInTier = False
+                    for t in tier[token]:
+                        if(t.termStr == token):
+                            wasInTier = True
+                            termList = t
+                            lastDocTuple = t.getLast()
                 
-                        if(lastDocTuple[0] == docID):
-                            termList.incLastTF()
-                        else:
-                            termList.addDoc(docID)
-                            termList.incDocFreq()
-                if(wasInTier == False):
-                    t.append = Term.buildTerm(token, docID)
+                            if(lastDocTuple[0] == docID):
+                                termList.incLastTF()
+                            else:
+                                termList.addDoc(docID)
+                                termList.incDocFreq()
+                    if(wasInTier == False):
+                        t.append = Term.buildTerm(token, docID)
                     
-            else:
-                tier[token] = []
-                tier[token].append(Term.buildTerm(token, docID))
+                else:
+                    tier[token] = []
+                    tier[token].append(Term.buildTerm(token, docID))
                 
     def tfxidf(self, term, docnum, tier):
         tf  = -1
@@ -76,22 +77,30 @@ class Index:
         termObject = None
 
         if term in tier:
+            inDoc = False
             for t in tier[term]:
                 if(t.termStr == term):
                     termObject = t
                     for tup in t.docList:
                         if tup[0] == docnum:
                             tf = tup[1]
+                            inDoc = True
+                            #print('The tf of term: ' + term + ', is: ' + str(tf))
                             break
+                if(not inDoc):
+                    #print('term: ' + term + ', was not in doc')
                     return 0
-        else: return 0
-        
+        else: 
+            #print('term: ' + term + ', was not in index')
+            return 0
+        #print('\n')
         df = termObject.documentFrequency
+        #print('The df of term: ' + term + ', is: ' + str(df))
         idf = math.log(self.numDocuments / df)
-        
-        print(tf)
+        #print('The idf of term: ' + term + ', is: ' + str(idf))
+        #print('The tf-idf of term: ' + term + ', is: ' + str(math.log( 1 + tf) * idf) + '\n')
 
-        return math.log(tf) * idf
+        return math.log(1 + tf) * idf
     
     # computeSimilarity computes the semelarity between list of terms
     # query and document number docnum in tier tier of the Index.            
@@ -103,7 +112,7 @@ class Index:
             query_vector.append(1)
             doc_vector.append(self.tfxidf(term, docnum, tier))
         
-        return dotProduct(query_vector, doc_vector)
+        return dotProduct(query_vector, doc_vector) / (len(query_vector) * 2)
         
 #END CLASS
 
@@ -212,6 +221,67 @@ def getArticleInformation(unprocessedDocs):
     # build a document using the relevant information and return it
     return Document.buildDocument(doc_attributes[2],doc_attributes[1],doc_attributes[4],int(doc_attributes[0]))
 
+#doQuery returns a list document numbers where
+#the top k documents are selected are returned and sorted
+#based on there similatry to query q. index is the tiered index
+#to run the query against. 
+def doQuery(query, index, k):
+    q = query.split()
+    
+    j = 0
+    while(j < len(q)):
+        token = tokenize(q[j])
+        if(token == ''):
+            del q[j]
+            j -= 1
+        else:
+            q[j] = token
+            j += 1
+    
+    #tier1sim is list of tuples of the form (docID, similarity) 
+    #similarity is the similarity between document number docID and query q.
+    tier1Sim = []
+    
+    i = 0
+    while(i < index.numDocuments):
+        tier1Sim.append((i + 1, index.computeSimilarity(q, i + 1, index.tier1)))
+        i += 1
+        
+    sortedSim = sorted(tier1Sim, key = lambda tup: tup[1], reverse = True)
+    
+    sortedSim = sortedSim[0:(k - 1)]
+    simTier2 = []
+    
+    i = 0
+    while(i < len(sortedSim)):
+        docID = sortedSim[i][0]
+        simTier2.append((docID, index.computeSimilarity(q, docID, index.tier2)))
+        i += 1
+        
+    resultListTups = sorted(simTier2, key = lambda tup: tup[1], reverse = True)
+    
+    resultList = []
+    i = 0
+    while(i < len(resultListTups)):
+        resultList.append(resultListTups[i][0])
+        i += 1
+    
+    return resultList
+
+#showResults prints the titles and document numbers of all entries 
+#in list of tuples results. results is a list of document numbers.
+#docList is thelist of documents that holds the title and document
+#number information.
+def showResults(results, docList):
+    print('The results for your query are:\n')
+    
+    i = 0
+    while(i < len(results)):
+        print('Document number: ' + str(results[i]))
+        print(docList[results[i] - 1].title)
+        i += 1
+        
+    print('\n')
 #######################################
 #                MAIN                 #
 #######################################
@@ -219,22 +289,33 @@ def getArticleInformation(unprocessedDocs):
 theFile = getRawText('corpus/cran.all.1400')
 docList = parseCorpus(theFile)
 
-for doc in docList[0:5]:
-    doc1 = doc
-    print(doc1.title)
-    print(str(doc1.number) + '\n')
-
-
+k = -1 #top k results the user would like to see
 
 index = Index.createIndex()
-dls = docList[0:5]
-index.populateIndex(dls)
-print('documents in index: ' + str(index.numDocuments))
-print(index.tier1['of'])
-print(index.tier1['of'][0].documentFrequency)
-print(index.tier1['of'][0].docList)
+index.populateIndex(docList)
 
-print(index.tfxidf('of', 1, index.tier2))
+print('Documents indexed.\n')
 
-q = 'what similarity laws must be obeyed when constructing aeroelastic models of heated high speed aircraft'.split()
-print(index.computeSimilarity(q, 184, index.tier2))
+print('Enter an integer for top k results you would like to see.')
+k = int(input())
+
+
+print('\nEnter a query or type -stop to stop\n')
+
+continueQuerying = True
+while(continueQuerying):
+    usrQuery = input()
+    
+    if(usrQuery == '-stop'):
+        break
+        
+    results = doQuery(usrQuery, index, 25)
+    showResults(results, docList)
+    
+    print('Enter a query or type -stop to stop\n')
+    
+print('\nexiting')
+    
+
+
+
