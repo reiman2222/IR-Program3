@@ -1,3 +1,5 @@
+#Tyler Rodgers, Chase Moore, Jack Edwards
+
 import re
 import math
 import porter
