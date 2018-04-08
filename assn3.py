@@ -2,7 +2,7 @@ import re
 import math
 import porter
 
-# Build an object class
+#a Document object represents a document in the cran collection.
 class Document:
     def __init__(self):
         self.author    = ''
@@ -22,29 +22,31 @@ class Document:
 
 #END CLASS
 
+#an Index is a two tiered inverted index with tier1 as an
+#inverted index on the titles a Documents and tier2 
+#as and inverted index on the body text of Documents.
 class Index:
     def __init__(self):
         self.tier1 = {}
         self.tier2 = {}
         self.numDocuments = -1
-        
-    def __str__(self):
-        return 'Index'
     
+    #createIndex creates an Index.
     @staticmethod
     def createIndex():
         index = Index()
         index.numDocuments = 0
         return index
 	
-    #adds all terms in list of documents docList to the index self
+    #populate adds all terms in list of Documents docList to the index self.
     def populateIndex(self, docList):
         for doc in docList:
             self.updateIndex(self.tier1, doc.title, doc.number)
             self.updateIndex(self.tier2, doc.body_text, doc.number)
             self.numDocuments += 1
 			
-    #adds all terms in string content to tier tier of index self
+    #updateIndex adds all terms in string content to tier tier of Index self.
+    #docID is the documents ID of the doument whoes content is being indexed.
     def updateIndex(self, tier, content, docID):
         wordList = content.split()
         for word in wordList:
@@ -71,6 +73,8 @@ class Index:
                     tier[token] = []
                     tier[token].append(Term.buildTerm(token, docID))
                 
+    #tfxidf computes the tf-idf of term term in document number docnum
+    #with respect to tier tier.
     def tfxidf(self, term, docnum, tier):
         tf  = -1
         df  = -1
@@ -86,25 +90,19 @@ class Index:
                         if tup[0] == docnum:
                             tf = tup[1]
                             inDoc = True
-                            #print('The tf of term: ' + term + ', is: ' + str(tf))
                             break
                 if(not inDoc):
-                    #print('term: ' + term + ', was not in doc')
                     return 0
         else: 
-            #print('term: ' + term + ', was not in index')
             return 0
-        #print('\n')
+        
         df = termObject.documentFrequency
-        #print('The df of term: ' + term + ', is: ' + str(df))
         idf = math.log(self.numDocuments / df)
-        #print('The idf of term: ' + term + ', is: ' + str(idf))
-        #print('The tf-idf of term: ' + term + ', is: ' + str(math.log( 1 + tf) * idf) + '\n')
 
         return math.log(1 + tf) * idf
     
-    # computeSimilarity computes the semelarity between list of terms
-    # query and document number docnum in tier tier of the Index.            
+    #computeSimilarity computes the similarity between list of terms
+    #query and document number docnum in tier tier of the Index self.            
     def computeSimilarity(self, query, docnum, tier):
         query_vector = []
         doc_vector   = []
@@ -117,18 +115,19 @@ class Index:
         
 #END CLASS
 
+#a Term represents an entry in a tier of a Index.
+#Terms contain termStr the term the Term object represents stored as a string,
+#documentFrequency the document frequency of the term,
+#and docList a list of tuples of the form (docID, term frequency) to record the
+#term frequency of the term in each document.
 class Term:
     def __init__(self):
         self.termStr = ''
         self.documentFrequency = -1
         self.docList = [] #list of tuples of the form (docID, term frequency)
-	
-    def __str__(self):
-        return 'Term'
     
-    def __repr__(self):
-        return 'Term'
-        
+    #buildTerm returns a Term object for term t as a string where the first
+    #occurence of term t is in document number docID.
     @staticmethod
     def buildTerm(t, docID):
         term = Term()
@@ -137,23 +136,27 @@ class Term:
         term.docList.append((docID, 1))
         return term
         
+    #getLast returns the last docID term frequency tuple in the Term self.
     def getLast(self):
         return self.docList[len(self.docList) - 1]
     
+    #incLastTF increments the term frequency of the last
+    #docID term frequency tuple in the Term self.
     def incLastTF(self):
         last = self.getLast()
         self.docList[len(self.docList) - 1] = (last[0], last[1] + 1)
         
+    #addDoc creates a new docID term frequency tuple and appends it to the
+    #docList of Term self. the term frequency of the tuple is set to 1.
     def addDoc(self, docID):
         self.docList.append((docID, 1))
         
-        
+    #incDocFreq increments the document frequency of Term self.   
     def incDocFreq(self):
         self.documentFrequency += 1
-	
+	    
+#END CLASS        
 
-# Build the inverted index
-    
 #tokenize(word) tokenizes a string. 
 #word is the string to tokenize.
 def tokenize(word):
@@ -161,17 +164,16 @@ def tokenize(word):
     w = regex.sub('', word)
     w = w.lower()
     w = porter.stem(w)
-    #w = porter.stem(w)
     return w
 
-# extract the raw text from a file
-#
+#getRawText returns the contents of file filename.
 def getRawText(filename):
     f = open(filename, 'r')
     fileText = f.read()
     return fileText
 
-
+#parseCorpus returns a list of Documetns representing each document
+#in the cran corpus. courpus is the cran corpus as a sting.
 def parseCorpus(corpus):
     docList = []
     docs = []
@@ -179,11 +181,6 @@ def parseCorpus(corpus):
     re_entry = re.compile("\.I ")
     docs = re.split(re_entry, corpus)
 
-    #print(docs[1])
-    #print(len(docs))
-
-    # for some reason the first entry is originally blank.
-    # this fucks everything up so we have to make it die.
     del(docs[0])
     #getArticleInformation(docs[0])
 
@@ -192,14 +189,16 @@ def parseCorpus(corpus):
 
     return docList
 
+#dotProduct returns the dot product of vectors(list of numbers) a and b.
+#dotProduct expects len(a) == len(b).
 def dotProduct(a, b):
     total = 0
     for i in range(0, len(a)):
         total += (a[i] * b[i])
     return total
     
+#getArticleInformation returns a Document object generated from string unprocessedDocs.
 def getArticleInformation(unprocessedDocs):
-    #print(type(unprocessedDocs))
     doc_buster = re.compile("\.[A-Z]\n")
     doc_attributes = re.split(doc_buster, unprocessedDocs)
 
@@ -268,26 +267,31 @@ def showResults(results, docList):
         i += 1
         
     print('\n')
+
 #######################################
 #                MAIN                 #
 #######################################
 
+#read corpus and generate a list of files
 theFile = getRawText('corpus/cran.all.1400')
 docList = parseCorpus(theFile)
 
 k = -1 #top k results the user would like to see
 
+#create tiered index
 index = Index.createIndex()
 index.populateIndex(docList)
 
 print('Documents indexed.\n')
 
+#get k for top k retreival
 print('Enter an integer for top k results you would like to see.')
 k = int(input())
 
 
 print('\nEnter a query or type -stop to stop\n')
 
+#get user input
 continueQuerying = True
 while(continueQuerying):
     usrQuery = input()
@@ -302,4 +306,3 @@ while(continueQuerying):
     
 print('\nexiting')
     
-
