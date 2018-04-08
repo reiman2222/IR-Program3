@@ -1,5 +1,6 @@
 import re
 import math
+import porter
 
 # Build an object class
 class Document:
@@ -152,23 +153,6 @@ class Term:
 	
 
 # Build the inverted index
-
-#toknizeWordList(line) tokenizes a string of words. 
-#line is the string to tokenize.
-#returns list of tokenized words.
-def tokenizeWordList(line):
-    wordlist = []
-    
-    for token in line.split():
-        wordlist.extend(token.replace('--', '-').split('-'))
-    
-    i = 0
-    while(i < len(wordlist)):
-        
-        wordlist[i] = tokenize(wordlist[i])
-        i = i + 1
-    
-    return wordlist
     
 #tokenize(word) tokenizes a string. 
 #word is the string to tokenize.
@@ -176,6 +160,7 @@ def tokenize(word):
     regex = re.compile('[^a-zA-Z]+')
     w = regex.sub('', word)
     w = w.lower()
+    w = porter.stem(w)
     #w = porter.stem(w)
     return w
 
@@ -228,6 +213,7 @@ def getArticleInformation(unprocessedDocs):
 def doQuery(query, index, k):
     q = query.split()
     
+    #tokenize query
     j = 0
     while(j < len(q)):
         token = tokenize(q[j])
@@ -235,7 +221,7 @@ def doQuery(query, index, k):
             del q[j]
             j -= 1
         else:
-            q[j] = token
+            q[j] = porter.stem(token)
             j += 1
     
     #tier1sim is list of tuples of the form (docID, similarity) 
@@ -249,7 +235,7 @@ def doQuery(query, index, k):
         
     sortedSim = sorted(tier1Sim, key = lambda tup: tup[1], reverse = True)
     
-    sortedSim = sortedSim[0:(k - 1)]
+    sortedSim = sortedSim[0:k]
     simTier2 = []
     
     i = 0
@@ -309,13 +295,11 @@ while(continueQuerying):
     if(usrQuery == '-stop'):
         break
         
-    results = doQuery(usrQuery, index, 25)
+    results = doQuery(usrQuery, index, k)
     showResults(results, docList)
     
     print('Enter a query or type -stop to stop\n')
     
 print('\nexiting')
     
-
-
 
